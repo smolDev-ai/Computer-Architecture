@@ -1,5 +1,11 @@
 """CPU functionality."""
 
+# OPCODES:
+LDI = 0b10000010
+MUL = 0b10100010
+PRN = 0b01000111
+HLT = 0b00000001
+
 import sys
 
 class CPU:
@@ -7,28 +13,29 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.ram = [0] * 256  # RAM
+        self.reg = [0] * 8  # Register
+        self.pc = 0  # Program Counter
 
-    def load(self):
+    def load(self, file):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        with open(file) as program:
+            for line in program:
+                # strip new lines and split at the # symbol
+                clean_up = line.strip().split('#')
+                # grab the number
+                value = clean_up[0].strip()
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                if value != "":
+                    # convert to binary
+                    num = int(value, 2)
+                    self.ram[address] = num
+                    address += 1
+                else:
+                    continue
 
 
     def alu(self, op, reg_a, reg_b):
@@ -36,9 +43,31 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        if op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+        if op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
+        if op == "DIV":
+            self.reg[reg_a] /= self.reg[reg_b]
+        if op == "MOD":
+            self.reg[reg_a] %= self.reg[reg_b]
+        if op == "INC":
+            self.reg[reg_a] += 1
+        if op == "DEC":
+            self.reg[reg_a] -= 1
+
+
         else:
             raise Exception("Unsupported ALU operation")
+    
+    def ram_read(self, MAR):
+        return self.ram[MAR]
+
+    def ram_write(self, MDR, MAR):
+        # MDR -- Value
+        # MAR -- Address to write the value to.
+        self.ram[MAR] = MDR
+
 
     def trace(self):
         """
@@ -62,4 +91,28 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        while True:
+            if self.ram_read(self.pc) == LDI:
+                reg_index = self.ram[self.pc+1]
+                value = self.ram[self.pc+2]
+
+                self.reg[reg_index] = value
+
+                self.pc += 3
+            if self.ram_read(self.pc) == MUL:
+                reg_1 = self.ram[self.pc+1]
+                reg_2 = self.ram[self.pc+2]
+                self.alu("MUL", reg_1, reg_2)
+                
+                self.pc += 3
+            if self.ram_read(self.pc) == PRN:
+                reg_index = self.ram[self.pc+1]
+
+                print(self.reg[reg_index])
+
+                self.pc += 2
+            if self.ram_read(self.pc) == HLT:
+                return False
+
+
+

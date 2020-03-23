@@ -51,6 +51,18 @@ class CPU:
             self.reg[reg_a] /= self.reg[reg_b]
         if op == "MOD":
             self.reg[reg_a] %= self.reg[reg_b]
+        if op == "AND":
+            self.reg[reg_a] &= self.reg[reg_b]
+        if op == "NOT":
+            ~self.reg[reg_a]
+        if op == "OR":
+            self.reg[reg_a] |= self.reg[reg_b]
+        if op == "XOR":
+            self.reg[reg_a] ^= self.reg[reg_b]
+        if op == "SHL":
+            self.reg[reg_a] <<= self.reg[reg_b]
+        if op == "SHR":
+            self.reg[reg_a] >>= self.reg[reg_b]
         if op == "INC":
             self.reg[reg_a] += 1
         if op == "DEC":

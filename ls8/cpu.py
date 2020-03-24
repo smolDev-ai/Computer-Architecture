@@ -61,13 +61,16 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256  # RAM
         self.reg = [0] * 8  # Register
-        self.fl = 0  # flags
+        self.fl = {}  # flags
         self.pc = 0  # Program Counter
         self.sp = 7  # Stack Pointer
         self.reg[self.sp] = 0xF4  # register where the stack pointer is 0xF4 is empty
         self.opcodes = {
             LDI: lambda register, value: self.handle_LDI(register, value),
             PRN: lambda value, _: print(self.reg[value]),
+            PRA: lambda value, _: print(chr(self.reg[value])),
+            ST:,  # need to read the spec fully
+            LD:,  # need to read the spec fully
             ADD: lambda reg_a, reg_b: self.alu("ADD", reg_a, reg_b),
             SUB: lambda reg_a, reg_b: self.alu("SUB", reg_a, reg_b),
             MUL: lambda reg_a, reg_b: self.alu("MUL", reg_a, reg_b),
@@ -81,10 +84,12 @@ class CPU:
             NOT: lambda num: self.alu("NOT", num),
             SHL: lambda reg_a, reg_b: self.alu("SHL", reg_a, reg_b),
             SHR: lambda reg_a, reg_b: self.alu("SHR", reg_a, reg_b),
+            CMP: lambda reg_a, reg_b: self.alu("CMP", reg_a, reg_b),
             PUSH: lambda opa, _: self.handle_push(opa),
             POP: lambda opa, _: self.handle_pop(opa),
             CALL: lambda opa, _: self.handle_call(opa),
-            RET: lambda *_args: self.handle_ret()
+            RET: lambda *_args: self.handle_ret(),
+            JMP: lambda opa, _: self.handle_jmp(opa),
         }
 
     def load(self, file):
@@ -106,7 +111,6 @@ class CPU:
                     address += 1
                 else:
                     continue
-
 
     def alu(self, op, reg_a, reg_b=None):
         """ALU operations."""
@@ -173,6 +177,7 @@ class CPU:
             alu_math[op](reg_a, reg_b)
         elif op in alu_bitwise:
             alu_bitwise[op](reg_a, reg_b)
+            
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -192,7 +197,7 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            #self.fl,
+            self.fl,
             #self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
@@ -223,6 +228,9 @@ class CPU:
     def handle_ret(self):
         self.pc = self.ram_read(self.reg[self.sp])
         self.reg[self.sp] += 1
+
+    def handle_jmp(self, address):
+        self.pc = self.reg[address]
 
     def run(self):
         """Run the CPU."""

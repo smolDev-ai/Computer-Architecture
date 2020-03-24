@@ -69,8 +69,8 @@ class CPU:
             LDI: lambda register, value: self.handle_LDI(register, value),
             PRN: lambda value, _: print(self.reg[value]),
             PRA: lambda value, _: print(chr(self.reg[value])),
-            ST:,  # need to read the spec fully
-            LD:,  # need to read the spec fully
+            ST: lambda reg_a, reg_b: self.handle_ST(reg_a, reg_b),
+            LD: lambda reg_a, reg_b: self.handle_LD(reg_a, reg_b),
             ADD: lambda reg_a, reg_b: self.alu("ADD", reg_a, reg_b),
             SUB: lambda reg_a, reg_b: self.alu("SUB", reg_a, reg_b),
             MUL: lambda reg_a, reg_b: self.alu("MUL", reg_a, reg_b),
@@ -90,6 +90,13 @@ class CPU:
             CALL: lambda opa, _: self.handle_call(opa),
             RET: lambda *_args: self.handle_ret(),
             JMP: lambda opa, _: self.handle_jmp(opa),
+            JEQ: lambda reg_a, _: self.handle_comparison("JEQ", reg_a),
+            JGE: lambda reg_a, _: self.handle_comparison("JGE", reg_a),
+            JGT: lambda reg_a, _: self.handle_comparison("JGT", reg_a),
+            JLE: lambda reg_a, _: self.handle_comparison("JLE", reg_a),
+            JLT: lambda reg_a, _: self.handle_comparison("JLT", reg_a),
+            JNE: lambda reg_a, _: self.handle_comparison("JNE", reg_a),
+
         }
 
     def load(self, file):
@@ -177,6 +184,19 @@ class CPU:
             alu_math[op](reg_a, reg_b)
         elif op in alu_bitwise:
             alu_bitwise[op](reg_a, reg_b)
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.fl['E'] = 1
+            else:
+                self.fl['E'] = 0
+            if self.reg[reg_a] < self.reg[reg_b]:
+                self.fl['L'] = 1
+            else:
+                self.fl['L'] = 0
+            if self.reg[reg_a] > self.reg[reg_b]:
+                self.fl['G'] = 1
+            else:
+                self.fl['G'] = 0
             
         else:
             raise Exception("Unsupported ALU operation")
@@ -212,6 +232,12 @@ class CPU:
     def handle_LDI(self, register, value):
         self.reg[register] = value
 
+    def handle_LD(self, reg_a, reg_b):
+        self.reg[reg_a] = self.ram_read(self.reg[reg_b])
+
+    def handle_ST(self, reg_a, reg_b):
+        self.ram_write(self.reg[reg_b], self.reg[reg_a])
+
     def handle_push(self, opa):
         self.reg[self.sp] -= 1
         self.ram_write(self.reg[opa], self.reg[self.sp])
@@ -232,16 +258,55 @@ class CPU:
     def handle_jmp(self, address):
         self.pc = self.reg[address]
 
+    def handle_comparison(self, op, reg_a):
+        def equal(a):
+            if self.fl['E'] == 1:
+                self.pc = self.reg[a]
+            else:
+                self.pc += 2
+
+        def greater(a):
+            if self.fl['G'] == 1:
+                self.pc = self.reg[a]
+            else:
+                self.pc += 2
+
+        def less(a):
+            if self.fl['L'] == 1:
+                self.pc = self.reg[a]
+            else:
+                self.pc += 2
+        
+        def not_equal(a):
+            if self.fl['E'] == 0:
+                self.pc = self.reg[a]
+            else:
+                self.pc += 2
+
+       # Create functions for each check
+        comparison_ops = {
+            "JEQ": equal,
+            "JGE": equal,
+            "JGT": greater,
+            "JLE": equal,
+            "JLT": less,
+            "JNE": not_equal
+        }
+
+        if op in comparison_ops:
+            comparison_ops[op](reg_a)
+
+
     def run(self):
         """Run the CPU."""
         while True:
             IR = self.ram_read(self.pc)
             OPA = self.ram_read(self.pc + 1)
             OPB = self.ram_read(self.pc + 2)
-            
+
             if IR == HLT:
                 return False
-            
+
             if IR == NOP:
                 continue
 

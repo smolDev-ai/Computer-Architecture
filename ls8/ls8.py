@@ -7,5 +7,5 @@ from cpu import *
 
 cpu = CPU()
 
-cpu.load(sys.argv[1])
+cpu.load('examples/sctest.ls8')
 cpu.run()

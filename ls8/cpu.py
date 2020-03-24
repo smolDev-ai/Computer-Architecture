@@ -4,7 +4,10 @@ import sys
 # GENERAL OPCODES:
 LDI = 0b10000010
 PRN = 0b01000111
+PRA = 0b01001000
 HLT = 0b00000001
+ST = 0b10000100
+LD = 0b10000011
 
 # ALU--Math:
 ADD = 0b10100000
@@ -15,6 +18,9 @@ MOD = 0b10100100
 DEC = 0b01100110
 INC = 0b01100101
 
+# ALU--Comparison
+CMP = 0b10100111
+
 # ALU--Bitwise:
 AND = 0b10101000
 OR = 0b10101010
@@ -23,9 +29,29 @@ NOT = 0b01101001
 SHL = 0b10101100
 SHR = 0b10101101
 
-# Stack
+# Stack:
 PUSH = 0b01000101
 POP = 0b01000110
+
+# Call related:
+CALL = 0b01010000
+RET = 0b00010001
+
+# Jump related:
+JEQ = 0b01010101
+JGE = 0b01011010
+JGT = 0b01010111
+JLE = 0b01011001
+JLT = 0b01011000
+JMP = 0b01010100
+JNE = 0b01010110
+
+# Interrupt
+INT = 0b01010010
+IRET = 0b00010011
+
+# Do Nothing:
+NOP = 0b00000000
 
 
 class CPU:
@@ -40,7 +66,7 @@ class CPU:
         self.reg[self.sp] = 0xF4  # register where the stack pointer is 0xF4 is empty
         self.opcodes = {
             LDI: lambda register, value: self.handle_LDI(register, value),
-            PRN: lambda value, _: self.hanlde_PRN(value, _),
+            PRN: lambda value, _: self.hanlde_PRN(value),
             ADD: lambda reg_a, reg_b: self.alu("ADD", reg_a, reg_b),
             SUB: lambda reg_a, reg_b: self.alu("SUB", reg_a, reg_b),
             MUL: lambda reg_a, reg_b: self.alu("MUL", reg_a, reg_b),
@@ -53,7 +79,9 @@ class CPU:
             XOR: lambda reg_a, reg_b: self.alu("XOR", reg_a, reg_b),
             NOT: lambda num: self.alu("NOT", num),
             SHL: lambda reg_a, reg_b: self.alu("SHL", reg_a, reg_b),
-            SHR: lambda reg_a, reg_b: self.alu("SHR", reg_a, reg_b)
+            SHR: lambda reg_a, reg_b: self.alu("SHR", reg_a, reg_b),
+            PUSH: lambda opa, _: self.handle_push(opa),
+            POP: lambda opa, _: self.handle_pop(opa)
         }
 
     def load(self, file):
@@ -176,8 +204,18 @@ class CPU:
     def handle_LDI(self, register, value):
         self.reg[register] = value
 
-    def hanlde_PRN(self, value, _):
+    def hanlde_PRN(self, value):
         print(self.reg[value])
+
+    def handle_push(self, opa):
+        self.reg[self.sp] -= 1
+        self.ram_write(self.reg[opa], self.reg[self.sp])
+
+    def handle_pop(self, opa):
+        self.reg[opa] = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+
+
 
     def run(self):
         """Run the CPU."""
@@ -192,27 +230,6 @@ class CPU:
             if IR in self.opcodes:
                 self.opcodes[IR](OPA, OPB)
                 self.pc += (IR >> 6) + 1
-
-            # if self.ram_read(self.pc) == PUSH:
-            #     self.reg[self.sp] -= 1
-
-            #     stack_address = self.reg[self.sp]
-            #     reg_num = self.ram[self.pc + 1]
-            #     value = self.reg[reg_num]
-                
-            #     self.ram_write(value, stack_address)
-                
-            #     self.pc += 2
-
-            # if self.ram_read(self.pc) == POP:
-            #     stack_value = self.ram_read(self.reg[self.sp])
-            #     reg_num = self.ram[self.pc + 1]
-            #     value = self.reg[reg_num]
-
-            #     self.reg[reg_num] = stack_value
-
-            #     self.reg[self.sp] += 1
-            #     self.pc += 2
 
 
 

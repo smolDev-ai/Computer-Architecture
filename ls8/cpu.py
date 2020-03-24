@@ -119,37 +119,32 @@ class CPU:
         def dec(reg_a):
             self.reg[reg_a] -= 1
 
-        # if op == "ADD":
-        #     self.reg[reg_a] += self.reg[reg_b]
-        # if op == "SUB":
-        #     self.reg[reg_a] -= self.reg[reg_b]
-        # if op == "MUL":
-        #     self.reg[reg_a] *= self.reg[reg_b]
-        # if op == "DIV":
-        #     self.reg[reg_a] /= self.reg[reg_b]
-        # if op == "MOD":
-        #     self.reg[reg_a] %= self.reg[reg_b]
-        # if op == "AND":
-        #     self.reg[reg_a] &= self.reg[reg_b]
-        # if op == "NOT":
-        #     self.reg[reg_a] = ~self.reg[reg_a]
-        # if op == "OR":
-        #     self.reg[reg_a] |= self.reg[reg_b]
-        # if op == "XOR":
-        #     self.reg[reg_a] ^= self.reg[reg_b]
-        # if op == "SHL":
-        #     self.reg[reg_a] <<= self.reg[reg_b]
-        # if op == "SHR":
-        #     self.reg[reg_a] >>= self.reg[reg_b]
-        # if op == "INC":
-        #     self.reg[reg_a] += 1
-        # if op == "DEC":
-        #     self.reg[reg_a] -= 1
+        alu_math = {
+            "ADD": add,
+            "SUB": sub,
+            "MUL": mul,
+            "DIV": div,
+            "MOD": mod,
+            "INC": inc,
+            "DEC": dec
+        }
 
+        alu_bitwise = {
+            "AND": ir_and,
+            "OR": ir_or,
+            "NOT": ir_not,
+            "XOR": xor,
+            "SHL": shl,
+            "SHR": shr
+        }
 
+        if op in alu_math:
+            alu_math[op](reg_a, reg_b)
+        elif op in alu_bitwise:
+            alu_bitwise[op](reg_a, reg_b)
         else:
             raise Exception("Unsupported ALU operation")
-    
+
     def ram_read(self, MAR):
         return self.ram[MAR]
 
@@ -197,87 +192,6 @@ class CPU:
             if IR in self.opcodes:
                 self.opcodes[IR](OPA, OPB)
                 self.pc += (IR >> 6) + 1
-            
-            # if self.ram_read(self.pc) == ADD:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("ADD", reg_1, reg_2)
-                
-            #     self.pc += 3
-            
-            # if self.ram_read(self.pc) == SUB:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("SUB", reg_1, reg_2)
-                
-            #     self.pc += 3
-            
-            # if self.ram_read(self.pc) == MUL:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("MUL", reg_1, reg_2)
-                
-            #     self.pc += 3
-            
-            # if self.ram_read(self.pc) == DIV:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("DIV", reg_1, reg_2)
-                
-            #     self.pc += 3
-            
-            # if self.ram_read(self.pc) == MOD:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("MOD", reg_1, reg_2)
-                
-            #     self.pc += 3
-            
-            # if self.ram_read(self.pc) == INC:
-            #     reg_1 = self.ram[self.pc+1]
-            #     self.alu("INC", reg_1)
-                
-            #     self.pc += 2
-            
-            # if self.ram_read(self.pc) == DEC:
-            #     reg_1 = self.ram[self.pc+1]
-            #     self.alu("DEC", reg_1)
-                
-            #     self.pc += 2
-
-            # if self.ram_read(self.pc) == NOT:
-            #     reg_1 = self.ram[self.pc+1]
-            #     self.alu("NOT", reg_1)
-                
-            #     self.pc += 2
-
-            # if self.ram_read(self.pc) == AND:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("AND", reg_1, reg_2)
-                
-            #     self.pc += 3
-
-            # if self.ram_read(self.pc) == OR:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("OR", reg_1, reg_2)
-                
-            #     self.pc += 3
-
-            # if self.ram_read(self.pc) == XOR:
-            #     reg_1 = self.ram[self.pc+1]
-            #     reg_2 = self.ram[self.pc+2]
-            #     self.alu("XOR", reg_1, reg_2)
-                
-            #     self.pc += 3
-
-            # if self.ram_read(self.pc) == PRN:
-            #     reg_index = self.ram[self.pc+1]
-
-            #     print(self.reg[reg_index])
-
-            #     self.pc += 2
 
             # if self.ram_read(self.pc) == PUSH:
             #     self.reg[self.sp] -= 1

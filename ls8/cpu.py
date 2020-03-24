@@ -61,12 +61,13 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256  # RAM
         self.reg = [0] * 8  # Register
+        self.fl = 0  # flags
         self.pc = 0  # Program Counter
         self.sp = 7  # Stack Pointer
         self.reg[self.sp] = 0xF4  # register where the stack pointer is 0xF4 is empty
         self.opcodes = {
             LDI: lambda register, value: self.handle_LDI(register, value),
-            PRN: lambda value, _: self.hanlde_PRN(value),
+            PRN: lambda value, _: print(self.reg[value]),
             ADD: lambda reg_a, reg_b: self.alu("ADD", reg_a, reg_b),
             SUB: lambda reg_a, reg_b: self.alu("SUB", reg_a, reg_b),
             MUL: lambda reg_a, reg_b: self.alu("MUL", reg_a, reg_b),
@@ -81,7 +82,9 @@ class CPU:
             SHL: lambda reg_a, reg_b: self.alu("SHL", reg_a, reg_b),
             SHR: lambda reg_a, reg_b: self.alu("SHR", reg_a, reg_b),
             PUSH: lambda opa, _: self.handle_push(opa),
-            POP: lambda opa, _: self.handle_pop(opa)
+            POP: lambda opa, _: self.handle_pop(opa),
+            CALL: lambda opa, _: self.handle_call(opa),
+            RET: lambda *_args: self.handle_ret()
         }
 
     def load(self, file):
@@ -204,9 +207,6 @@ class CPU:
     def handle_LDI(self, register, value):
         self.reg[register] = value
 
-    def hanlde_PRN(self, value):
-        print(self.reg[value])
-
     def handle_push(self, opa):
         self.reg[self.sp] -= 1
         self.ram_write(self.reg[opa], self.reg[self.sp])
@@ -215,7 +215,14 @@ class CPU:
         self.reg[opa] = self.ram_read(self.reg[self.sp])
         self.reg[self.sp] += 1
 
+    def handle_call(self, address):
+        self.reg[self.sp] -= 1
+        self.ram_write(self.pc + 2, self.reg[self.sp])
+        self.pc = self.reg[address]
 
+    def handle_ret(self):
+        self.pc = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
 
     def run(self):
         """Run the CPU."""
@@ -226,10 +233,17 @@ class CPU:
             
             if IR == HLT:
                 return False
+            
+            if IR == NOP:
+                continue
 
             if IR in self.opcodes:
                 self.opcodes[IR](OPA, OPB)
-                self.pc += (IR >> 6) + 1
+                operands = IR >> 6
+                set_pc = (IR & 0b10000) >> 4
+
+                if not set_pc:
+                    self.pc += operands + 1
 
 
 

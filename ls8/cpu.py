@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 """CPU functionality."""
 
 # GENERAL OPCODES:
@@ -61,16 +62,21 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256  # RAM
         self.reg = [0] * 8  # Register
-        self.fl = {}  # flags
+        self.fl = 0  # flags
         self.pc = 0  # Program Counter
+        self.im = 5  # Interrupt Mask
+        self.intstat = 6  # Interrupt Status
+        self.key = 0xF4  # Key press
         self.sp = 7  # Stack Pointer
         self.reg[self.sp] = 0xF4  # register where the stack pointer is 0xF4 is empty
         self.opcodes = {
+            # ---- General Commands ----
             LDI: lambda register, value: self.handle_LDI(register, value),
             PRN: lambda value, _: print(self.reg[value]),
             PRA: lambda value, _: print(chr(self.reg[value])),
             ST: lambda reg_a, reg_b: self.handle_ST(reg_a, reg_b),
             LD: lambda reg_a, reg_b: self.handle_LD(reg_a, reg_b),
+            # ---- ALU Commands ----
             ADD: lambda reg_a, reg_b: self.alu("ADD", reg_a, reg_b),
             SUB: lambda reg_a, reg_b: self.alu("SUB", reg_a, reg_b),
             MUL: lambda reg_a, reg_b: self.alu("MUL", reg_a, reg_b),
@@ -85,8 +91,10 @@ class CPU:
             SHL: lambda reg_a, reg_b: self.alu("SHL", reg_a, reg_b),
             SHR: lambda reg_a, reg_b: self.alu("SHR", reg_a, reg_b),
             CMP: lambda reg_a, reg_b: self.alu("CMP", reg_a, reg_b),
+            # ---- Stack Commands ----
             PUSH: lambda opa, _: self.handle_push(opa),
             POP: lambda opa, _: self.handle_pop(opa),
+            # ---- Function and Loop Commands ----
             CALL: lambda opa, _: self.handle_call(opa),
             RET: lambda *_args: self.handle_ret(),
             JMP: lambda opa, _: self.handle_jmp(opa),
@@ -96,8 +104,13 @@ class CPU:
             JLE: lambda reg_a, _: self.handle_comparison("JLE", reg_a),
             JLT: lambda reg_a, _: self.handle_comparison("JLT", reg_a),
             JNE: lambda reg_a, _: self.handle_comparison("JNE", reg_a),
+            # ---- Interrupt Commands ----
+            INT: lambda reg_a, _: self.set_intstat(reg_a),
+            IRET: lambda *_args: self.handle_iret(),
 
         }
+        self.timer = 0
+        self.interrupts_on = True
 
     def load(self, file):
         """Load a program into memory."""
@@ -184,19 +197,14 @@ class CPU:
             alu_math[op](reg_a, reg_b)
         elif op in alu_bitwise:
             alu_bitwise[op](reg_a, reg_b)
-        elif op == "CMP":
+        elif op == 'CMP':
+            self.fl = 0b00000000
             if self.reg[reg_a] == self.reg[reg_b]:
-                self.fl['E'] = 1
+                self.fl = 0b00000001
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.fl = 0b00000100
             else:
-                self.fl['E'] = 0
-            if self.reg[reg_a] < self.reg[reg_b]:
-                self.fl['L'] = 1
-            else:
-                self.fl['L'] = 0
-            if self.reg[reg_a] > self.reg[reg_b]:
-                self.fl['G'] = 1
-            else:
-                self.fl['G'] = 0
+                self.FL = 0b00000010
             
         else:
             raise Exception("Unsupported ALU operation")
@@ -259,47 +267,87 @@ class CPU:
         self.pc = self.reg[address]
 
     def handle_comparison(self, op, reg_a):
-        def equal(a):
-            if self.fl['E'] == 1:
-                self.pc = self.reg[a]
-            else:
-                self.pc += 2
 
-        def greater(a):
-            if self.fl['G'] == 1:
-                self.pc = self.reg[a]
-            else:
-                self.pc += 2
-
-        def less(a):
-            if self.fl['L'] == 1:
-                self.pc = self.reg[a]
-            else:
-                self.pc += 2
-        
-        def not_equal(a):
-            if self.fl['E'] == 0:
-                self.pc = self.reg[a]
-            else:
-                self.pc += 2
-
-       # Create functions for each check
+       # binary masks
         comparison_ops = {
-            "JEQ": equal,
-            "JGE": equal,
-            "JGT": greater,
-            "JLE": equal,
-            "JLT": less,
-            "JNE": not_equal
+            "JEQ": 0b1,
+            "JGE": 0b11,
+            "JGT": 0b10,
+            "JLE": 0b101,
+            "JLT": 0b100,
+            "JNE": 0b1
         }
 
-        if op in comparison_ops:
-            comparison_ops[op](reg_a)
+        flag = self.fl & comparison_ops[op]
+        if flag and op != 'JNE':
+            self.pc = self.reg[reg_a]
+        elif op == 'JNE' and flag == 0:
+            self.pc = self.reg[reg_a]
+        else:
+            self.pc += 2
+
+    def set_intstat(self, reg_a):
+        value = 0b1 << reg_a
+        self.reg[self.intstat] = value
+
+    def Interrupt_lookup(self):
+        vectors = {
+            0: 0xF8,
+            1: 0xF9,
+            2: 0xFA,
+            3: 0xFB,
+            4: 0xFC,
+            5: 0xFD,
+            6: 0xFE,
+            7: 0xFF,
+        }
+
+        masked_ints = self.reg[self.im] & self.reg[self.intstat]
+        for i in range(8):
+            interrupt_happened = ((masked_ints >> i) & 1) == 1
+            if interrupt_happened:
+                self.handle_interrupts()
+                self.pc = self.ram_read(vectors[i])
+                break
+
+    def handle_interrupts(self):
+        # Flip the flag for interrupts to false so we don't do anymore
+        self.interrupts_on = False
+        # set interrupt status to 0
+        self.reg[self.intstat] = 0
+        # store PC
+        self.reg[self.sp] -= 1
+        self.ram_write(self.pc, self.reg[self.sp])
+        # store flags
+        self.reg[self.sp] -= 1
+        self.ram_write(self.fl, self.reg[self.sp])
+        # store registers 0-6 in that order
+        for i in range(7):
+            self.handle_push(i)
+
+
+    def handle_iret(self):
+        for i in range(6, -1, -1):
+            self.handle_pop(i)
+        self.fl = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+        self.pc = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+        self.interrupts_on = True
+        self.timer = datetime.now()
+
 
 
     def run(self):
         """Run the CPU."""
+        self.timer = datetime.now()
         while True:
+            if self.interrupts_on:
+                updated_time = datetime.now()
+                if (updated_time - self.timer).seconds > 3:
+                    self.timer = updated_time
+                    self.set_intstat(0)
+                self.Interrupt_lookup()
             IR = self.ram_read(self.pc)
             OPA = self.ram_read(self.pc + 1)
             OPB = self.ram_read(self.pc + 2)
